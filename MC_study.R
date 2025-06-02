@@ -1,6 +1,8 @@
 ###########################################################################
-# Monte Carlo study for lower‑tail Spearman’s rho: empirical vs Bernstein #
+# Monte Carlo study for lower‑tail Spearman’s rho: empirical vs Bernstein #
 ###########################################################################
+
+## Written by Frederic Ouimet (May 2025)
 
 start_time <- Sys.time()
 
@@ -13,14 +15,14 @@ plot_width         <- 800          # base width  (px)
 plot_height        <- 600          # base height (px)
 plot_height_factor <- 1.10         # make window 10 % taller
 
-nb_cores  <- parallel::detectCores() - 1
-K         <- 1000
-sim_thetas  <- c(-1, -0.5, 0, 0.5, 1)   # θ values to simulate & tabulate
-plot_thetas <- c(0.5, 1)                # θ values to show in the figures
+nb_cores     <- parallel::detectCores() - 1
+K            <- 10000
+sim_thetas   <- c(-1, -0.5, 0, 0.5, 1)   # θ values to simulate & tabulate
+plot_thetas  <- c(-1, -0.5, 0, 0.5, 1)   # θ values to show in the figures
 sample_sizes <- c(50, 200)
 p_values     <- c(0.1, 0.5, 1)
-m_seq_full   <- 1:40                 # simulate m = 1,2,…,40
-m_seq_plot   <- seq(5, 40, by = 5)   # ticks / markers only at 5,10,…,40
+m_seq_full   <- 1:60                 # simulate m = 1,2,…,60
+m_seq_plot   <- seq(5, 60, by = 5)   # ticks / markers only at 5,10,…,60
 # ------------------------------------------------------------------------
 
 library(doParallel)
@@ -123,7 +125,6 @@ tab1 <- bern_sum %>%
   mutate(
     MSERedPct = 100 * (MSE_emp - MSE_bern) / MSE_emp
   ) %>%
-  ## ---------- rounding: 4 decimals everywhere except % ----------
   mutate(
     across(
       c(AbsBias_emp, AbsBias_bern,
@@ -181,7 +182,7 @@ metrics <- list(
   list(col_emp = "var_emp",     col_bern = "var_est", ylab = "Variance", name = "Variance")
 )
 
-for(th in plot_thetas) {             # ← only 0.5 and 1 are graphed
+for(th in plot_thetas) {
   for(nn in sample_sizes) {
     
     emp_df <- filter(emp_sum, theta == th, n == nn) %>% arrange(p)
@@ -198,13 +199,31 @@ for(th in plot_thetas) {             # ← only 0.5 and 1 are graphed
       
       y_emp_vals <- emp_df[[ metric$col_emp ]]
       
-      # legend position rule
-      if (metric$name == "MSE") {
-        pos <- if (nn == 200 && th == 1) "topright" else "bottomright"
-      } else if (metric$name == "Variance") {
-        pos <- "bottomright"
+      # legend position rule, with special placement when θ = 1
+      if (th == 1 || th == -0.5) {
+        if (metric$name == "MSE") {
+          pos <- "topright"
+        } else if (metric$name == "Variance") {
+          pos <- "bottomright"
+        } else {
+          pos <- "topright"
+        }
+      } else if (th == -1) {
+        if (metric$name == "MSE") {
+          pos <- "topright"
+        } else if (metric$name == "Variance") {
+          pos <- "right"
+        } else {
+          pos <- "right"
+        }
       } else {
-        pos <- "topright"
+        if (metric$name == "MSE") {
+          pos <- if (nn == 200 && th == 1) "topright" else "bottomright"
+        } else if (metric$name == "Variance") {
+          pos <- "bottomright"
+        } else {
+          pos <- "topright"
+        }
       }
       
       theta_str <- format(th, trim = TRUE, scientific = FALSE)
@@ -286,14 +305,13 @@ con <- file(latex_out, "w")
 
 writeLines("\\begin{table}[ht!]",            con)
 writeLines("\\centering",                    con)
-writeLines("\\caption{Estimates based on $1000$ Monte--Carlo replications for the absolute bias, variance and MSE of the empirical $\\widehat{\\rho}_n(p)$ and Bernstein $\\widehat{\\rho}_{n,m}(p)$ estimators with the rule-of-thumb Bernstein degree $m = \\lfloor n^{2/3} \\rfloor$.}", con)
-writeLines("\\vspace{4mm}",                  con)
+writeLines(sprintf("\\caption{Estimates based on $%d$ Monte Carlo replications for the absolute bias, variance and MSE of the lower-tail Spearman's rho estimator $\\widehat{\\rho}_n(p)$ and its Bernstein version $\\widehat{\\rho}_{m,n}(p)$, with the rule-of-thumb Bernstein degree $m = \\lfloor n^{2/3} \\rfloor$.}", K), con)
 writeLines("\\label{tab:1}",                 con)
-writeLines("\\setlength{\\tabcolsep}{5pt}",  con)
+writeLines("\\setlength{\\tabcolsep}{4pt}",  con)
 writeLines("\\small",                        con)
 writeLines("\\begin{tabular}{ccccccccccc}",  con)
 writeLines("\\hline",                        con)
-writeLines("$\\theta$ & $n$ & $p$ & $m$ & $\\lvert\\Bias[\\widehat{\\rho}_n(p)]\\rvert$ & $\\lvert\\Bias[\\widehat{\\rho}_{n,m}(p)]\\rvert$ & $\\Var[\\widehat{\\rho}_n(p)]$ & $\\Var[\\widehat{\\rho}_{n,m}(p)]$ & $\\mathrm{MSE}[\\widehat{\\rho}_n(p)]$ & $\\mathrm{MSE}[\\widehat{\\rho}_{n,m}(p)]$ & MSE reduction (\\%) \\\\", con)
+writeLines("$\\theta$ & $n$ & $p$ & $m$ & $\\lvert\\Bias[\\widehat{\\rho}_n(p)]\\rvert$ & $\\lvert\\Bias[\\widehat{\\rho}_{m,n}(p)]\\rvert$ & $\\Var[\\widehat{\\rho}_n(p)]$ & $\\Var[\\widehat{\\rho}_{m,n}(p)]$ & $\\mathrm{MSE}[\\widehat{\\rho}_n(p)]$ & $\\mathrm{MSE}[\\widehat{\\rho}_{m,n}(p)]$ & MSE reduction (\\%) \\\\", con)
 writeLines("\\hline",                        con)
 
 for(i in seq_len(nrow(tab))) {
